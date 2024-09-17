@@ -1,0 +1,74 @@
+<h1>웹서버 -> 소켓서버</h1>
+<ul id="messages"></ul>
+<form id="form">
+    <textarea id="input" placeholder="ㅇㅇ" style="width: 500px; height: 500px;"></textarea>
+    <button type="submit">Send</button>
+</form>
+
+<script>
+    let socket;
+    let token = localStorage.getItem('jwtToken');
+
+    async function fetchToken() {
+        const response = await fetch('/api/getToken', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username: 'root', password: '1234qwer' })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            token = data.token;
+            localStorage.setItem('jwtToken', token);
+            initializeWebSocket();
+        } else {
+            console.error('Failed to fetch token:', response.status);
+        }
+    }
+
+    function initializeWebSocket() {
+        socket = new WebSocket(`ws://15.164.99.232:3000?token=${token}`);
+
+        socket.addEventListener('open', function (event) {
+            console.log("WebSocket connection established");
+        });
+
+        socket.addEventListener('message', function (event) {
+            const messages = document.getElementById('messages');
+            const li = document.createElement('li');
+            li.textContent = event.data;
+            messages.appendChild(li);
+        });
+
+        socket.addEventListener('close', function (event) {
+            console.log("WebSocket connection closed");
+        });
+
+        socket.addEventListener('error', function (event) {
+            console.log("WebSocket connection error:", event);
+        });
+    }
+
+    if (token) {
+        initializeWebSocket();
+    } else {
+        fetchToken();
+    }
+
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (input.value) {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(input.value);
+                input.value = '';
+            } else {
+                console.error("WebSocket is not open. Current state:", socket.readyState);
+            }
+        }
+    });
+</script>
